@@ -1,0 +1,21 @@
+{
+  "config": {
+    "page_title": "Campaign — Tweetbank",
+    "site_title_prefix": "Bring Back",
+    "site_title_highlight": "Someone",
+    "site_subtitle": "Tweetbank",
+    "stat_icon": "🐾",
+    "stat_text": "#YourHashtag",
+    "hero_tag": "Campaign",
+    "hero_heading_prefix": "Help Us",
+    "hero_heading_highlight": "Act",
+    "hero_heading_suffix": "",
+    "hero_description": "Select a tweet, copy it, or post directly through your X account."
+  },
+  "tweets": [
+    {
+      "text": "Replace this with your tweet text.\n#YourHashtag"
+    }
+  ]
+}
+

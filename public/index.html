@@ -15,6 +15,9 @@
     <span class="paw-icon">🐾</span>
     <div class="site-title" id="siteTitle">Bring Back <span>Brownie</span><br><small id="siteSubtitle" style="font-size:0.65em;font-weight:400;color:#aaa;font-family:'DM Mono',monospace;">Tweetbank</small></div>
   </div>
+  <div class="header-right">
+    <button class="btn btn-admin" id="adminToggle" onclick="toggleAdmin()">Admin</button>
+  </div>
 </header>
 
 <div class="stats-bar" id="statsBar">
@@ -36,6 +39,20 @@
     <input type="text" placeholder="Search tweets…" oninput="onSearch(this.value)" id="searchInput">
   </div>
   <span class="results-count" id="resultsCount"></span>
+</div>
+
+<div class="admin-panel" id="adminPanel" hidden>
+  <div class="admin-title">Upload a new Tweetbank JSON</div>
+  <div class="admin-row">
+    <input class="admin-input" type="password" id="adminToken" placeholder="Upload token" autocomplete="current-password">
+    <input class="admin-file" type="file" id="tweetbankFile" accept="application/json">
+    <button class="btn btn-admin-upload" onclick="uploadTweetbank()">Upload</button>
+    <a class="admin-link" href="/template.tweetbank.json" download>Download template</a>
+  </div>
+  <div class="admin-hint">
+    The uploaded file must include <code>config</code> and <code>tweets</code> fields (same structure as the template).
+  </div>
+  <div class="admin-msg" id="adminMsg" aria-live="polite"></div>
 </div>
 
 <div class="tweet-grid" id="tweetGrid"></div>

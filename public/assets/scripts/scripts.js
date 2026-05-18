@@ -3,6 +3,7 @@ let tweets = [];
 let currentFilter = 'all';
 let searchQuery = '';
 let config = {};
+let adminOpen = false;
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 (async () => {
@@ -31,6 +32,69 @@ async function loadData() {
 
   applyConfig(config);
   setCounts();
+}
+
+function toggleAdmin() {
+  adminOpen = !adminOpen;
+  const panel = document.getElementById('adminPanel');
+  if (panel) panel.hidden = !adminOpen;
+
+  if (adminOpen) {
+    const tokenEl = document.getElementById('adminToken');
+    if (tokenEl && !tokenEl.value) tokenEl.value = sessionStorage.getItem('uploadToken') || '';
+  }
+}
+
+async function uploadTweetbank() {
+  const tokenEl = document.getElementById('adminToken');
+  const fileEl = document.getElementById('tweetbankFile');
+  const msgEl = document.getElementById('adminMsg');
+
+  const token = tokenEl ? tokenEl.value.trim() : '';
+  const file = fileEl ? fileEl.files?.[0] : null;
+
+  if (!token) return setAdminMsg('Upload token required.', true);
+  if (!file) return setAdminMsg('Please choose a JSON file to upload.', true);
+
+  let jsonText = '';
+  try {
+    jsonText = await file.text();
+  } catch {
+    return setAdminMsg('Could not read file.', true);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(jsonText);
+  } catch {
+    return setAdminMsg('Invalid JSON file.', true);
+  }
+
+  setAdminMsg('Uploading…');
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...data, token }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) return setAdminMsg(out?.error || 'Upload failed.', true);
+
+    sessionStorage.setItem('uploadToken', token);
+    await loadData();
+    render();
+    setAdminMsg(`Uploaded OK. Loaded ${tweets.length} tweets.`);
+  } catch {
+    setAdminMsg('Upload failed (network/server error).', true);
+  }
+
+  function setAdminMsg(message, isError) {
+    if (!msgEl) return;
+    msgEl.textContent = message;
+    msgEl.style.color = isError ? '#b84a1e' : '';
+  }
 }
 
 function buildIntentUrl(text) {
