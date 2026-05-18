@@ -477,3 +477,37 @@
     .controls { padding: 0 1rem; }
     header { padding: 0 1rem; }
   }
+
+  .footer-credit {
+  margin-top: 60px;
+  padding: 32px 20px 40px;
+  text-align: center;
+  border-top: 1px solid #eee;
+  color: #666;
+  font-size: 0.92rem;
+  background: #fafafa;
+}
+
+.footer-credit strong {
+  color: #d97757;
+}
+
+.footer-credit small {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.footer-credit .made-with {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.footer-credit a {
+  color: #d97757;
+  text-decoration: none;
+}
+
+.footer-credit a:hover {
+  text-decoration: underline;
+}
