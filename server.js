@@ -1,15 +1,15 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { put, get } = require('@vercel/blob');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DATA_DIR = path.join(__dirname, 'data');
-const CURRENT_DATA_PATH = path.join(DATA_DIR, 'current.tweetbank.json');
 const TEMPLATE_PATH = path.join(__dirname, 'public', 'template.tweetbank.json');
+const BLOB_PATHNAME = 'current.tweetbank.json'; // stable name, no random suffix
 
 function readJsonIfExists(filePath) {
   try {
@@ -34,25 +34,51 @@ function validateTweetbankData(data) {
   return { ok: true };
 }
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// ── Blob helpers ──────────────────────────────────────────────────────────────
+// Read the blob by pathname so this works with a private Blob store too. Private
+// blob URLs cannot be fetched directly without the SDK's authentication.
+async function readCurrentFromBlob() {
+  try {
+    const result = await get(BLOB_PATHNAME, { access: 'private' });
+    if (!result || result.statusCode !== 200) return null;
+    return await new Response(result.stream).json();
+  } catch {
+    return null;
+  }
 }
 
-const initialData =
-  readJsonIfExists(CURRENT_DATA_PATH) ??
-  readJsonIfExists(TEMPLATE_PATH) ??
-  { config: {}, tweets: [] };
+async function writeCurrentToBlob(data) {
+  await put(BLOB_PATHNAME, JSON.stringify(data, null, 2) + '\n', {
+    access: 'private',
+    contentType: 'application/json',
+    addRandomSuffix: false,      // keep the pathname stable so we can find it again
+    allowOverwrite: true,        // required when re-using the same pathname
+  });
+}
 
-let currentData = initialData;
+// In-memory cache for the lifetime of a single serverless instance.
+// Not guaranteed to persist across invocations — that's what the blob is for.
+let currentData = null;
+
+async function getCurrentData() {
+  if (currentData) return currentData;
+  currentData =
+    (await readCurrentFromBlob()) ??
+    readJsonIfExists(TEMPLATE_PATH) ??
+    { config: {}, tweets: [] };
+  return currentData;
+}
 
 // ── API: get all tweets ──────────────────────────────────────────────────────
-app.get('/api/tweets', (req, res) => {
-  res.json(currentData.tweets ?? []);
+app.get('/api/tweets', async (req, res) => {
+  const data = await getCurrentData();
+  res.json(data.tweets ?? []);
 });
 
 // ── API: get config ─────────────────────────────────────────────────────────
-app.get('/api/config', (req, res) => {
-  res.json(currentData.config ?? {});
+app.get('/api/config', async (req, res) => {
+  const data = await getCurrentData();
+  res.json(data.config ?? {});
 });
 
 function requireUploadAuth(req, res, next) {
@@ -74,24 +100,28 @@ function normalizeToken(value) {
 }
 
 // ── API: upload tweetbank JSON ───────────────────────────────────────────────
-app.post('/api/upload', requireUploadAuth, (req, res) => {
-  const { token, ...data } = req.body;  // Extract and discard token
+app.post('/api/upload', requireUploadAuth, async (req, res) => {
+  const { token, ...data } = req.body; // Extract and discard token
   const v = validateTweetbankData(data);
   if (!v.ok) return res.status(400).json({ error: v.error });
 
   currentData = data;
   try {
-    ensureDataDir();
-    fs.writeFileSync(CURRENT_DATA_PATH, JSON.stringify(currentData, null, 2) + '\n', 'utf-8');
-  } catch {
-    // Best-effort persistence; keep in-memory data.
+    await writeCurrentToBlob(currentData);
+  } catch (err) {
+    console.error('Blob write failed:', err);
+    return res.status(500).json({ error: 'Failed to persist to Blob storage.' });
   }
 
   res.json({ ok: true, tweets: currentData.tweets.length });
 });
 
-// ── Start server ──────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\\n🐾 LD Tweetbank running at http://localhost:${PORT}\\n`);
-});
+// ── Start server (local/dev) ──────────────────────────────────────────────────
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`\n🐾 LD Tweetbank running at http://localhost:${PORT}\n`);
+  });
+}
+
+module.exports = app;
